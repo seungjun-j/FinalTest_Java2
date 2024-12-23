@@ -1,7 +1,12 @@
 import javax.swing.*;
+import javax.swing.table.DefaultTableModel;
 import java.awt.*;
+import java.io.BufferedReader;
+import java.io.FileReader;
+import java.io.IOException;
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
+import java.util.ArrayList;
 import java.util.HashMap;
 
 /**
@@ -10,6 +15,11 @@ import java.util.HashMap;
  */
 public class First extends JFrame {
     private final HashMap<String, String> userDatabase = new HashMap<>(); // 사용자 정보 저장
+    private final ArrayList<String[]> busSchedule = new ArrayList<>(); // CSV 데이터 저장
+    private JLabel remainingTimeLabel; // 남은 시간 표시
+    private JLabel waitingCountLabel; // 대기 인원 표시
+    private int waitingCount = 0;
+    private DefaultTableModel tableModel; // 테이블 모델
 
     /**
      * @changelog
@@ -17,13 +27,15 @@ public class First extends JFrame {
      * <li>2024-12-21 : 메뉴바 생성 및 추가(SeungJun)</li>
      * <li>2024-12-22 : 요구사항에 맞춘 UI 구현(SeungJun)</li>
      * <li>2024-12-23 : 로그인 창 및 회원가입 기능 추가<hashmap을 사용하여 입출력기능 사용>(SeungJun)</li>
-     * <li></li>
+     * <li>2024-12-24 : 좌석 예약 및 대기 인원 관리 기능 추가 (SeungJun)</li>
      */
     public First() {
         setTitle("청주 대학교 셔틀 버스 관리 시스템");
         setSize(600, 600);
         setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
         setLayout(new BorderLayout());
+
+        loadBusSchedule(); // CSV 파일 로드
 
         // 메뉴바 생성
         JMenuBar menuBar = new JMenuBar();
@@ -34,12 +46,6 @@ public class First extends JFrame {
         noticeMenu.add(emergencyNotice);
         menuBar.add(noticeMenu);
 
-        // 좌석 예약 메뉴
-        JMenu reserveMenu = new JMenu("좌석 예약");
-        JMenuItem seatReserve = new JMenuItem("좌석 예약하기");
-        reserveMenu.add(seatReserve);
-        menuBar.add(reserveMenu);
-
         // 로그인 메뉴
         JMenu loginMenu = new JMenu("Log in");
         JMenuItem loginItem = new JMenuItem("로그인");
@@ -49,10 +55,6 @@ public class First extends JFrame {
         menuBar.add(loginMenu);
 
         setJMenuBar(menuBar);
-
-        // 로그인 클릭 시 동작 정의
-        loginItem.addActionListener(e -> showLoginDialog());
-        signUpItem.addActionListener(e -> showSignUpDialog());
 
         // 상단 패널: 날짜와 시간
         JPanel topPanel = new JPanel();
@@ -69,116 +71,55 @@ public class First extends JFrame {
         timer.start();
 
         // 중앙 패널: 셔틀버스 정보 및 대기 인원 공유
-        JPanel centerPanel = new JPanel(new GridLayout(3, 1, 10, 10));
+        JPanel centerPanel = new JPanel(new BorderLayout());
 
-        // 셔틀버스 운행 시간
-        JButton scheduleButton = new JButton("셔틀버스 운행 시간 확인 및 알람 설정");
-        centerPanel.add(scheduleButton);
+        JPanel total = new JPanel(new GridLayout(0, 4, 5, 5));
+        String[] busStop = {"8", "9", "10"};
+        JComboBox<String> stopBox = new JComboBox<>(busStop);
+        total.add(new JLabel("시간 선택:"));
+        total.add(stopBox);
 
-        // 대기 인원 공유
-        JButton waitingShareButton = new JButton("버스 대기 인원 공유");
-        centerPanel.add(waitingShareButton);
+        remainingTimeLabel = new JLabel("남은 시간: ");
+        remainingTimeLabel.setForeground(Color.RED);
+        total.add(remainingTimeLabel);
 
-        // 버스 도착 여부 확인 (채팅 기능 활용)
-        JButton busArrivalCheckButton = new JButton("버스 도착 여부 확인 (채팅 기능)");
-        centerPanel.add(busArrivalCheckButton);
+        waitingCountLabel = new JLabel("대기 인원: 0명");
+        total.add(waitingCountLabel);
 
+        centerPanel.add(total, BorderLayout.NORTH);
+
+        // 테이블 생성
+        String[] columnNames = {"시간", "분", "설정", "대기 인원"};
+        tableModel = new DefaultTableModel(columnNames, 0);
+        JTable table = new JTable(tableModel);
+        JScrollPane scrollPane = new JScrollPane(table);
+        centerPanel.add(scrollPane, BorderLayout.CENTER);
+
+        stopBox.addActionListener(e -> loadTableData((String) stopBox.getSelectedItem()));
         add(centerPanel, BorderLayout.CENTER);
-
-        // 하단 패널: 긴급 공지
-        JPanel bottomPanel = new JPanel();
-        JButton emergencyButton = new JButton("긴급 공지사항 보기");
-        bottomPanel.add(emergencyButton);
-        add(bottomPanel, BorderLayout.SOUTH);
 
         setVisible(true);
     }
 
-    // 로그인 창을 표시하는 메서드
-    private void showLoginDialog() {
-        JDialog loginDialog = new JDialog(this, "로그인", true);
-        loginDialog.setSize(300, 200);
-        loginDialog.setLayout(new GridLayout(3, 2, 10, 10));
-        loginDialog.setLocationRelativeTo(this);
-
-        // 입력 필드
-        JLabel usernameLabel = new JLabel("아이디:");
-        JTextField usernameField = new JTextField();
-
-        JLabel passwordLabel = new JLabel("비밀번호:");
-        JPasswordField passwordField = new JPasswordField();
-
-        // 버튼
-        JButton loginButton = new JButton("로그인");
-        JButton cancelButton = new JButton("취소");
-
-        loginButton.addActionListener(e -> {
-            String username = usernameField.getText();
-            String password = new String(passwordField.getPassword());
-
-            if (userDatabase.containsKey(username) && userDatabase.get(username).equals(password)) {
-                JOptionPane.showMessageDialog(loginDialog, "로그인 성공!", "로그인", JOptionPane.INFORMATION_MESSAGE);
-                loginDialog.dispose();
-            } else {
-                JOptionPane.showMessageDialog(loginDialog, "회원정보가 없습니다. 회원가입을 진행해주세요.", "로그인 실패", JOptionPane.ERROR_MESSAGE);
+    private void loadBusSchedule() {
+        try (BufferedReader br = new BufferedReader(new FileReader("/mnt/data/통합 문서1.csv"))) {
+            String line;
+            while ((line = br.readLine()) != null) {
+                String[] data = line.split(",");
+                busSchedule.add(data);
             }
-        });
-
-        cancelButton.addActionListener(e -> loginDialog.dispose());
-
-        // 구성 요소 추가
-        loginDialog.add(usernameLabel);
-        loginDialog.add(usernameField);
-        loginDialog.add(passwordLabel);
-        loginDialog.add(passwordField);
-        loginDialog.add(loginButton);
-        loginDialog.add(cancelButton);
-
-        loginDialog.setVisible(true);
+        } catch (IOException e) {
+            e.printStackTrace();
+        }
     }
 
-    // 회원가입 창을 표시하는 메서드
-    private void showSignUpDialog() {
-        JDialog signUpDialog = new JDialog(this, "회원가입", true);
-        signUpDialog.setSize(300, 200);
-        signUpDialog.setLayout(new GridLayout(3, 2, 10, 10));
-        signUpDialog.setLocationRelativeTo(this);
-
-        // 입력 필드
-        JLabel usernameLabel = new JLabel("아이디:");
-        JTextField usernameField = new JTextField();
-
-        JLabel passwordLabel = new JLabel("비밀번호:");
-        JPasswordField passwordField = new JPasswordField();
-
-        // 버튼
-        JButton signUpButton = new JButton("회원가입");
-        JButton cancelButton = new JButton("취소");
-
-        signUpButton.addActionListener(e -> {
-            String username = usernameField.getText();
-            String password = new String(passwordField.getPassword());
-
-            if (userDatabase.containsKey(username)) {
-                JOptionPane.showMessageDialog(signUpDialog, "이미 존재하는 아이디입니다.", "회원가입 실패", JOptionPane.ERROR_MESSAGE);
-            } else {
-                userDatabase.put(username, password);
-                JOptionPane.showMessageDialog(signUpDialog, "회원가입 성공!", "회원가입", JOptionPane.INFORMATION_MESSAGE);
-                signUpDialog.dispose();
+    private void loadTableData(String selectedHour) {
+        tableModel.setRowCount(0);
+        for (String[] schedule : busSchedule) {
+            if (schedule[0].equals(selectedHour)) {
+                tableModel.addRow(new Object[]{schedule[0], schedule[1], "알림 설정", waitingCount});
             }
-        });
-
-        cancelButton.addActionListener(e -> signUpDialog.dispose());
-
-        // 구성 요소 추가
-        signUpDialog.add(usernameLabel);
-        signUpDialog.add(usernameField);
-        signUpDialog.add(passwordLabel);
-        signUpDialog.add(passwordField);
-        signUpDialog.add(signUpButton);
-        signUpDialog.add(cancelButton);
-
-        signUpDialog.setVisible(true);
+        }
     }
 
     public static void main(String[] args) {
