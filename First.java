@@ -17,7 +17,6 @@ public class First extends JFrame {
      * <li>2024-12-21 : 메뉴바 생성 및 추가(SeungJun)</li>
      * <li>2024-12-22 : 요구사항에 맞춘 UI 구현(SeungJun)</li>
      * <li>2024-12-23 : 로그인 창 및 회원가입 기능 추가<hashmap을 사용하여 입출력기능 사용>(SeungJun)</li>
-     * <li></li>
      */
     public First() {
         setTitle("청주 대학교 셔틀 버스 관리 시스템");
