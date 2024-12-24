@@ -14,8 +14,7 @@ import java.util.HashMap;
  * started date : 2024.11.17
  */
 public class First extends JFrame {
-    private final HashMap<String, String> userDatabase = new HashMap<>(); // 사용자 정보 저장
-    private final ArrayList<String[]> busSchedule = new ArrayList<>(); // CSV 데이터 저장
+    private final HashMap<String, ArrayList<String>> busScheduleMap = new HashMap<>(); // CSV 데이터를 HashMap으로 저장
     private JLabel remainingTimeLabel; // 남은 시간 표시
     private JLabel waitingCountLabel; // 대기 인원 표시
     private int waitingCount = 0;
@@ -74,7 +73,7 @@ public class First extends JFrame {
         JPanel centerPanel = new JPanel(new BorderLayout());
 
         JPanel total = new JPanel(new GridLayout(0, 4, 5, 5));
-        String[] busStop = {"8", "9", "10"};
+        String[] busStop = {"8시", "9시", "10시", "11시", "12시", "13시", "14시", "15시", "16시", "17시", "18시"};
         JComboBox<String> stopBox = new JComboBox<>(busStop);
         total.add(new JLabel("시간 선택:"));
         total.add(stopBox);
@@ -89,7 +88,7 @@ public class First extends JFrame {
         centerPanel.add(total, BorderLayout.NORTH);
 
         // 테이블 생성
-        String[] columnNames = {"시간", "분", "설정", "대기 인원"};
+        String[] columnNames = {"시간", "설정", "대기 인원"};
         tableModel = new DefaultTableModel(columnNames, 0);
         JTable table = new JTable(tableModel);
         JScrollPane scrollPane = new JScrollPane(table);
@@ -102,11 +101,12 @@ public class First extends JFrame {
     }
 
     private void loadBusSchedule() {
-        try (BufferedReader br = new BufferedReader(new FileReader("/mnt/data/통합 문서1.csv"))) {
+        try (BufferedReader br = new BufferedReader(new FileReader("C:\\Users\\sj021\\IdeaProjects\\FinalTest_Java2\\통합 문서1.csv"))) {
             String line;
             while ((line = br.readLine()) != null) {
                 String[] data = line.split(",");
-                busSchedule.add(data);
+                busScheduleMap.putIfAbsent(data[0], new ArrayList<>());
+                busScheduleMap.get(data[0]).add(data[1]);
             }
         } catch (IOException e) {
             e.printStackTrace();
@@ -115,9 +115,10 @@ public class First extends JFrame {
 
     private void loadTableData(String selectedHour) {
         tableModel.setRowCount(0);
-        for (String[] schedule : busSchedule) {
-            if (schedule[0].equals(selectedHour)) {
-                tableModel.addRow(new Object[]{schedule[0], schedule[1], "알림 설정", waitingCount});
+        ArrayList<String> schedules = busScheduleMap.get(selectedHour);
+        if (schedules != null) {
+            for (String minute : schedules) {
+                tableModel.addRow(new Object[]{selectedHour + " " + minute, "알림 설정", waitingCount});
             }
         }
     }
@@ -126,3 +127,4 @@ public class First extends JFrame {
         new First();
     }
 }
+
